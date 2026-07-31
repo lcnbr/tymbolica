@@ -1,0 +1,25 @@
+[package]
+name = "tymbolica-plugin"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "tymbolica_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+ahash = { version = "0.8", default-features = false, features = ["std", "compile-time-rng"] }
+ciborium = "0.2.2"
+getrandom = "0.3"
+symbolica = { git = "https://github.com/symbolica-dev/symbolica", branch = "dev", default-features = false, features = ["wasm"] }
+wasm-minimal-protocol = "0.1"
+
+[workspace]
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "z"
+panic = "abort"
+strip = true

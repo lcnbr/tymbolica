@@ -1,0 +1,6 @@
+[target.wasm32-unknown-unknown]
+linker = "wasm-ld"
+rustflags = [
+  "--cfg", "getrandom_backend=\"custom\"",
+  "-C", "link-self-contained=no",
+]
