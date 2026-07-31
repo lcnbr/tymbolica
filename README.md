@@ -23,6 +23,6 @@ Generate the manual:
 nix run .#manual
 ```
 
-The generated `typst/tymbolica.wasm` is intentionally untracked. Symbolica is
-source-available and its redistribution terms apply to a bundled Wasm binary;
-see <https://symbolica.io/license/>.
+The generated `typst/tymbolica.wasm` is bundled with this project with
+redistribution permission. Symbolica is source-available and its licensing
+terms still apply; see <https://symbolica.io/license/>.
