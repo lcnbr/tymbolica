@@ -33,6 +33,7 @@ use symbolica::prelude::{
 };
 #[cfg(feature = "rubi")]
 use symbolica_integrate::{Integrate, IntegrationExplanation, IntegrationStep};
+use tymbolica_atom_payload::AtomModel;
 use wasm_minimal_protocol::*;
 
 initiate_protocol!();
@@ -1789,6 +1790,24 @@ pub fn symbol(name: &[u8], namespace: &[u8]) -> Result<Vec<u8>, String> {
         other => return Err(format!("namespace must be text, got {other:?}")),
     };
     encode_atom(&symbol_atom(&name, &namespace)?)
+}
+
+#[wasm_func]
+pub fn atom_model(request: &[u8]) -> Result<Vec<u8>, String> {
+    let Value::Map(map) = decode_cbor(request, "atom-model request")? else {
+        return Err("atom-model request must be a dictionary".to_owned());
+    };
+    let expressions = atom_list(
+        map_get(&map, "expressions").ok_or_else(|| "missing expressions".to_owned())?,
+        "expressions",
+    )?;
+    let parameters = atom_list(
+        map_get(&map, "parameters").ok_or_else(|| "missing parameters".to_owned())?,
+        "parameters",
+    )?;
+    AtomModel::new(expressions, parameters)
+        .and_then(|model| model.encode())
+        .map_err(|err| err.to_string())
 }
 
 #[wasm_func]

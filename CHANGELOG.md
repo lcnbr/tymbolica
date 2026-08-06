@@ -18,10 +18,12 @@ local `0.1.0` package while its initial public surface is being prepared.
   expressions, and whether the best-effort result is complete.
 - Split the WebAssembly engine into a compact core plugin and a full plugin
   containing Rubi. The imported top-level API and plain `init()` use core;
-  integration requires `init(profile: "full")`, with parsing, transformation,
-  and rendering kept within that full API because plugin expression bytes are
-  not portable. The full engine is stored in two web-app-sized carriers and
-  reassembled transparently, while core-only documents load just the core.
+  integration requires `init(profile: "full")`. The full engine is stored in
+  two web-app-sized carriers and reassembled transparently, while core-only
+  documents load just the core.
+- Added a versioned atom-model crate shared by independent plugins, plus a
+  separate Peroxide RK4 plugin and Lotka–Volterra example demonstrating a
+  symbolic model crossing the plugin boundary.
 - Documented every public parameter, default, return shape, and current
   capability boundary in the generated reference.
 - Declared Tymbolica's original source code under the MIT License while keeping

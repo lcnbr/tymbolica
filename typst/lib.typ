@@ -171,6 +171,10 @@
   if type(value) == array { return value.map(item => _expr_bytes(engine, item)) }
   (_expr_bytes(engine, value),)
 }
+#let _atom_model(engine, expressions, parameters) = engine.plugin.atom_model(cbor.encode((
+  expressions: _expr_array(engine, expressions),
+  parameters: _expr_array(engine, parameters),
+)))
 
 #let _canonical(engine, expr, namespaces: false) = str(engine.plugin.canonical(_payload_bytes(engine, expr), cbor.encode(namespaces)))
 #let _to_typst_source(engine, expr) = str(engine.plugin.to_typst(_payload_bytes(engine, expr)))
@@ -498,9 +502,9 @@
 /// immediate `input` and `output` expressions as bytes. The steps run from an
 /// outer rewrite into its nested integrals. No integration constant is added.
 ///
-/// Keep a calculation inside the engine that created its expressions. Core
-/// and full engines have separate Symbolica symbol registries, so their opaque
-/// atom bytes must not be exchanged.
+/// Atom exports contain the Symbolica state needed by another compatible
+/// engine. Direct exchange is nevertheless tied to Symbolica's wire revision;
+/// use `atom-model` for a version-checked multi-expression handoff.
 ///
 /// ```example
 /// #let sym = init(namespace: "physics")
@@ -549,6 +553,7 @@
   let api = (
     math: (eqn, grammar: none, namespace: none) => _from_math(engine, eqn, grammar: grammar, namespace: namespace),
     atom: value => _expr_bytes(engine, value),
+    atom-model: (expressions, parameters) => _atom_model(engine, expressions, parameters),
     var: (name, namespace: none) => _var(engine, name, namespace: namespace),
     wild: (name, level: 1, namespace: none) => _wild(engine, name, level: level, namespace: namespace),
     array-tree: (eqn, grammar: none) => _array_tree(engine, eqn, grammar: grammar),
@@ -673,6 +678,31 @@
   /// -> bytes | content | int | float | str
   value,
 ) = (_default_engine().atom)(value)
+
+/// Bundle expressions and ordered parameters for another Symbolica-backed
+/// plugin.
+///
+/// This is the shared atom-model interchange payload. `expressions` are the
+/// model outputs and `parameters` are unique symbolic indeterminates defining
+/// the order of numerical inputs. Keep the returned bytes opaque. A consumer
+/// must use the same payload-contract release and compatible Symbolica build.
+/// The format is for handoff between trusted plugins, not for accepting
+/// arbitrary external bytes.
+///
+/// ```example
+/// #let model = atom-model((math($x + y$), math($x y$)), (var("x"), var("y")))
+/// #repr(type(model))
+/// ```
+///
+/// -> bytes
+#let atom-model(
+  /// Expression or array of expressions.
+  /// -> bytes | content | array
+  expressions,
+  /// Parameter or array of parameters in evaluation order.
+  /// -> bytes | content | array
+  parameters,
+) = (_default_engine().atom-model)(expressions, parameters)
 
 /// Construct a named Symbolica variable.
 ///

@@ -1,0 +1,9 @@
+[package]
+name = "tymbolica-atom-payload"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[dependencies]
+symbolica = { git = "https://github.com/symbolica-dev/symbolica", rev = "9ad7ca3f59f9ed8637e3f4ae8157ead177662994", default-features = false, features = ["wasm"] }

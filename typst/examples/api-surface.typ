@@ -13,6 +13,8 @@
 #let full-integrate = full.integrate
 #let full-integrate-with-steps = full.integrate-with-steps
 #let parse = sym.math
+#let atom-model = sym.atom-model
+#let full-atom-model = full.atom-model
 #let var = sym.var
 #let wild = sym.wild
 #let to-typst = sym.to-typst
@@ -64,6 +66,8 @@
 
 #let x = var("x")
 #let y = var("y")
+#let portable-model = atom-model((parse($x + y$), parse($x y$)), (x, y))
+#assert.eq(type(portable-model), bytes)
 #let xp = var("x", namespace: "physics")
 #let namespaced = add(xp, x)
 
@@ -163,6 +167,8 @@
 #let exact = solve-linear((parse($2 x + y - 5$), parse($x - y - 1$)), (x, y))
 #let full-x = full-var("x")
 #let full-integrand = full-parse($x / (x + 1)$)
+#let full-portable-model = full-atom-model(full-integrand, full-x)
+#assert.eq(type(full-portable-model), bytes)
 #let integral = full-integrate(full-integrand, full-x)
 #let integration = full-integrate-with-steps(full-integrand, full-x)
 #assert(integration.complete)

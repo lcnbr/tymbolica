@@ -60,9 +60,10 @@ functions throughout the calculation:
 #render(integrate(parse($x / (x + 1)$), x))
 ```
 
-An API created with plain `init()` uses the core profile. Expression bytes are
-owned by the plugin that created them, so values cannot be passed between core
-and full APIs: parse, transform, and render with the same `sym` dictionary.
+An API created with plain `init()` uses the core profile. Atom exports carry
+the Symbolica state needed by a compatible plugin, but direct exchange is tied
+to the same Symbolica wire revision. Use `atom-model` for an explicit,
+version-checked handoff of several expressions and parameters.
 
 Both profiles are included in the package. A document that does not integrate
 only loads and instantiates the smaller core engine.
@@ -91,6 +92,8 @@ Linux data directory. During repository development, examples instead import
 - [Minimal example](typst/examples/basic.typ) — a compact first document
 - [Rubi integration](typst/examples/integration.typ) — the explicit full
   profile and its nested rule steps
+- [Peroxide bridge](typst/examples/peroxide-ode.typ) — Tymbolica builds a
+  symbolic ODE model which a separate numerical plugin integrates
 - [Polynomial-system showcase](typst/examples/showcase.typ) — exact solving,
   factorization, substitution, and a Jacobian determinant in one case study
 - [Batched expression grid](typst/examples/expression-grid.typ) — evaluate four
@@ -112,9 +115,10 @@ nix develop
 Use the repository apps for the normal release workflow:
 
 ```sh
-nix run .#build       # rebuild both engine profiles
+nix run .#build       # rebuild both engine profiles and the Peroxide example
 nix run .#build-core  # rebuild only typst/tymbolica.wasm
 nix run .#build-full  # rebuild only the full Rubi bundle
+nix run .#build-peroxide # rebuild the Peroxide example plugin
 nix run .#manual      # rebuild both profiles and typst/manual.pdf
 nix run .#check       # rebuild, compile the public examples, and verify the PDF
 nix flake check       # validate the Typst distribution using tracked plugins
@@ -132,8 +136,8 @@ WebAssembly bundle. Commit the source, bundle, and regenerated manual together.
 
 Tymbolica's original source code is available under the [MIT License](LICENSE).
 Tymbolica is an interface to the
-[Symbolica computer algebra system](https://symbolica.io/) and follows its
-upstream `dev` branch. The generated core and full WebAssembly bundles are
+[Symbolica computer algebra system](https://symbolica.io/) and pins a revision
+from its upstream `dev` branch. The generated WebAssembly bundles are
 included here with redistribution permission. The MIT License does not
 relicense Symbolica or those artifacts: Symbolica's own terms apply, so read the
 [Symbolica license](https://symbolica.io/license/) before redistributing or
@@ -145,6 +149,9 @@ Integration is provided by the MIT-licensed
 [`symbolica-integrate`](https://github.com/symbolica-dev/symbolica-integrate)
 port of the Rubi rule collection; thanks to both projects and their
 contributors.
+The numerical bridge example uses the MIT-or-Apache-2.0-licensed
+[Peroxide](https://github.com/Axect/Peroxide); thanks to its contributors as
+well.
 Thanks also to [Parsely](https://typst.app/universe/package/parsely/) for making
 native Typst-math parsing possible, and to
 [Tidy](https://typst.app/universe/package/tidy/) for the documentation tools.

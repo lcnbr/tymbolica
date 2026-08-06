@@ -31,7 +31,7 @@
           buildVariant = cargoFeatures: output: ''
             target=wasm32-unknown-unknown
             unset RUSTFLAGS CARGO_ENCODED_RUSTFLAGS
-            cargo build --release --target "$target" --no-default-features ${cargoFeatures}
+            cargo build --release --target "$target" -p tymbolica-plugin --no-default-features ${cargoFeatures}
             wasm-opt -Oz --quiet --enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int --strip-debug --strip-producers \
               -o ${output} "target/$target/release/tymbolica_plugin.wasm"
             size="$(wc -c < ${output})"
@@ -45,7 +45,7 @@
           fullBuildScript = ''
             target=wasm32-unknown-unknown
             unset RUSTFLAGS CARGO_ENCODED_RUSTFLAGS
-            cargo build --release --target "$target" --no-default-features --features rubi
+            cargo build --release --target "$target" -p tymbolica-plugin --no-default-features --features rubi
 
             full_raw="target/$target/release/tymbolica-full.raw.wasm"
             wasm-opt -Oz --quiet --enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int --strip-debug --strip-producers \
@@ -57,13 +57,28 @@
               typst/tymbolica-full-0.wasm typst/tymbolica-full-1.wasm
             ls -lh typst/tymbolica-full-0.wasm typst/tymbolica-full-1.wasm
           '';
-          buildScript = coreBuildScript + fullBuildScript;
+          peroxideBuildScript = ''
+            target=wasm32-unknown-unknown
+            unset RUSTFLAGS CARGO_ENCODED_RUSTFLAGS
+            cargo build --release --target "$target" -p tymbolica-peroxide-example-plugin
+            wasm-opt -Oz --quiet --enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int --strip-debug --strip-producers \
+              -o typst/tymbolica-peroxide.wasm "target/$target/release/tymbolica_peroxide_plugin.wasm"
+            size="$(wc -c < typst/tymbolica-peroxide.wasm)"
+            if [ "$size" -gt 20971520 ]; then
+              echo "typst/tymbolica-peroxide.wasm is $size bytes; Typst web app files must not exceed 20 MiB" >&2
+              exit 1
+            fi
+            ls -lh typst/tymbolica-peroxide.wasm
+          '';
+          engineBuildScript = coreBuildScript + fullBuildScript;
+          buildScript = engineBuildScript + peroxideBuildScript;
         in rec {
           default = build;
           build = app "tymbolica-build" buildScript;
           build-core = app "tymbolica-build-core" coreBuildScript;
           build-full = app "tymbolica-build-full" fullBuildScript;
-          manual = app "tymbolica-manual" (buildScript + ''
+          build-peroxide = app "tymbolica-build-peroxide" peroxideBuildScript;
+          manual = app "tymbolica-manual" (engineBuildScript + ''
             out="''${TYMBOLICA_MANUAL_OUT:-typst/manual.pdf}"
             if [ "$#" -gt 0 ]; then
               out="$1"
@@ -84,6 +99,7 @@
             typst compile --root . typst/examples/phase-portrait.typ "$check_dir/phase-portrait.pdf"
             typst compile --root . typst/examples/api-surface.typ "$check_dir/api-surface.pdf"
             typst compile --root . typst/examples/integration.typ "$check_dir/integration.pdf"
+            typst compile --root . typst/examples/peroxide-ode.typ "$check_dir/peroxide-ode.pdf"
             typst compile --root . typst/examples/parsely-mwe.typ "$check_dir/parsely-mwe.pdf"
             typst compile --root . typst/manual.typ "$check_dir/manual.pdf"
 
@@ -130,6 +146,7 @@
             typst compile --root "$work" "$work/typst/examples/phase-portrait.typ" "$out/phase-portrait.pdf"
             typst compile --root "$work" "$work/typst/examples/api-surface.typ" "$out/api-surface.pdf"
             typst compile --root "$work" "$work/typst/examples/integration.typ" "$out/integration.pdf"
+            typst compile --root "$work" "$work/typst/examples/peroxide-ode.typ" "$out/peroxide-ode.pdf"
             typst compile --root "$work" "$work/typst/examples/parsely-mwe.typ" "$out/parsely-mwe.pdf"
             typst compile --root "$work" "$work/typst/manual.typ" "$out/manual.pdf"
 

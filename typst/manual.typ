@@ -218,8 +218,10 @@ its methods explicitly:
 ```
 
 The imported top-level API is core-only, so integration always starts with an
-explicit full engine. Keep parsing, transformation, and rendering on that same
-engine: opaque Atom bytes cannot be passed between the core and full plugins.
+explicit full engine. Atom exports include the state needed by another
+compatible engine, but direct exchange remains tied to Symbolica's wire
+revision. `atom-model` provides the explicit, version-checked form when a set
+of expressions and parameters must cross a plugin boundary.
 
 == Where to begin
 
@@ -786,7 +788,7 @@ full-profile integration methods are documented separately afterwards.
   (
     title: [Parsing, symbols, and rendering],
     names: (
-      "math", "atom", "var", "wild", "array-tree", "canonical",
+      "math", "atom", "atom-model", "var", "wild", "array-tree", "canonical",
       "to-typst-source", "to-typst", "to-latex", "to-float",
     ),
   ),

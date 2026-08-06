@@ -1,0 +1,18 @@
+[package]
+name = "tymbolica-peroxide-example-plugin"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT"
+
+[lib]
+name = "tymbolica_peroxide_plugin"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1"
+ciborium = "0.2.2"
+getrandom = "0.3"
+peroxide = { version = "=0.43.0", default-features = false }
+tymbolica-atom-payload = { path = "../atom-payload" }
+wasm-minimal-protocol = "0.1"
