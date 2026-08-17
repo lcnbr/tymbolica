@@ -3,6 +3,12 @@
 version = 4
 
 [[package]]
+name = "adler2"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
+
+[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -282,8 +288,7 @@ dependencies = [
 [[package]]
 name = "graphica"
 version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10b1f5801ef27f815fbfb0f2057a6dfebaf0001304fd8c904e509f8f57b81f73"
+source = "git+https://github.com/symbolica-dev/symbolica?rev=680f51f5b70c0ad00a2cc7745206b3c7de9af2c1#680f51f5b70c0ad00a2cc7745206b3c7de9af2c1"
 dependencies = [
  "ahash",
  "dyn-clone",
@@ -442,6 +447,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
 
 [[package]]
+name = "miniz_oxide"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1fa76a2c86f704bdb222d66965fb3d63269ce38518b83cb0575fca855ebb6316"
+dependencies = [
+ "adler2",
+]
+
+[[package]]
 name = "nu-ansi-term"
 version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -481,8 +495,7 @@ dependencies = [
 [[package]]
 name = "numerica"
 version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "941849d46564eae737afbb1a7aa59bbc153e5f70c0a0e4079889efa68cc998bf"
+source = "git+https://github.com/symbolica-dev/symbolica?rev=680f51f5b70c0ad00a2cc7745206b3c7de9af2c1#680f51f5b70c0ad00a2cc7745206b3c7de9af2c1"
 dependencies = [
  "ahash",
  "astro-float",
@@ -795,13 +808,13 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 name = "symbolica"
 version = "2.2.0"
 dependencies = [
- "symbolica 2.2.0 (git+https://github.com/symbolica-dev/symbolica?rev=9ad7ca3f59f9ed8637e3f4ae8157ead177662994)",
+ "symbolica 2.2.0 (git+https://github.com/symbolica-dev/symbolica?rev=680f51f5b70c0ad00a2cc7745206b3c7de9af2c1)",
 ]
 
 [[package]]
 name = "symbolica"
 version = "2.2.0"
-source = "git+https://github.com/symbolica-dev/symbolica?rev=9ad7ca3f59f9ed8637e3f4ae8157ead177662994#9ad7ca3f59f9ed8637e3f4ae8157ead177662994"
+source = "git+https://github.com/symbolica-dev/symbolica?rev=680f51f5b70c0ad00a2cc7745206b3c7de9af2c1#680f51f5b70c0ad00a2cc7745206b3c7de9af2c1"
 dependencies = [
  "ahash",
  "append-only-vec",
@@ -828,9 +841,11 @@ dependencies = [
 [[package]]
 name = "symbolica-integrate"
 version = "1.0.0"
-source = "git+https://github.com/symbolica-dev/symbolica-integrate?rev=c0766013b7b866a0ab37324862240204bfa7107a#c0766013b7b866a0ab37324862240204bfa7107a"
 dependencies = [
+ "brotli",
+ "proc-macro2",
  "symbolica 2.2.0",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -964,7 +979,15 @@ dependencies = [
 name = "tymbolica-atom-payload"
 version = "0.1.0"
 dependencies = [
- "symbolica 2.2.0 (git+https://github.com/symbolica-dev/symbolica?rev=9ad7ca3f59f9ed8637e3f4ae8157ead177662994)",
+ "symbolica 2.2.0 (git+https://github.com/symbolica-dev/symbolica?rev=680f51f5b70c0ad00a2cc7745206b3c7de9af2c1)",
+]
+
+[[package]]
+name = "tymbolica-inflate-plugin"
+version = "0.1.0"
+dependencies = [
+ "miniz_oxide",
+ "wasm-minimal-protocol",
 ]
 
 [[package]]
@@ -986,7 +1009,7 @@ dependencies = [
  "ahash",
  "ciborium",
  "getrandom 0.3.4",
- "symbolica 2.2.0 (git+https://github.com/symbolica-dev/symbolica?rev=9ad7ca3f59f9ed8637e3f4ae8157ead177662994)",
+ "symbolica 2.2.0 (git+https://github.com/symbolica-dev/symbolica?rev=680f51f5b70c0ad00a2cc7745206b3c7de9af2c1)",
  "symbolica-integrate",
  "tymbolica-atom-payload",
  "wasm-minimal-protocol",

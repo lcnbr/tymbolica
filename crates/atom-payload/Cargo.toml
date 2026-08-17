@@ -6,4 +6,4 @@ publish = false
 license = "MIT"
 
 [dependencies]
-symbolica = { git = "https://github.com/symbolica-dev/symbolica", rev = "9ad7ca3f59f9ed8637e3f4ae8157ead177662994", default-features = false, features = ["wasm"] }
+symbolica = { git = "https://github.com/symbolica-dev/symbolica", rev = "680f51f5b70c0ad00a2cc7745206b3c7de9af2c1", default-features = false, features = ["wasm"] }

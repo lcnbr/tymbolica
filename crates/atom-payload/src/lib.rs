@@ -1,38 +1,33 @@
 //! A small, versioned interchange format for a numerical Symbolica model.
 //!
-//! Symbolica's normal [`Atom::export`] format stores the complete Symbolica
-//! state alongside every atom. This crate stores that state once and writes the
-//! expression and parameter atoms with [`AtomView::write`]. A consumer imports
-//! the state once and remaps every atom with [`Atom::import_with_map`].
+//! The payload stores canonical, namespaced Symbolica source for each expression
+//! and parameter. This keeps unrelated process-global state—such as Rubi's
+//! internal rule symbols—outside the interchange boundary.
 //!
 //! The payload intentionally describes only the common symbolic boundary. ODE
 //! solver configuration, integration results, and presentation belong to the
 //! consuming plugin.
 //!
-//! Version 1 is a trusted-producer format for ordinary Symbolica atoms. Its
-//! decoder must only receive bytes created by a compatible Tymbolica plugin:
-//! Symbolica's inner state/atom importer is not hardened for hostile input,
-//! and custom Rust normalization or evaluation hooks are not serialized.
+//! The decoder accepts only bounded UTF-8 frames and reparses them with the
+//! pinned Symbolica revision. Custom Rust normalization or evaluation hooks are
+//! intentionally outside the format.
 
 use std::collections::HashSet;
 use std::fmt;
-use std::io::{self, Cursor};
+use std::io;
 
-use symbolica::prelude::{Atom, AtomCore, ExpressionEvaluator, Indeterminate, State};
+use symbolica::prelude::{Atom, AtomCore, ExpressionEvaluator, Indeterminate, ParseSettings};
 
 /// The Symbolica revision whose atom representation this format carries.
-pub const SYMBOLICA_REVISION: &str = "9ad7ca3f59f9ed8637e3f4ae8157ead177662994";
+pub const SYMBOLICA_REVISION: &str = "680f51f5b70c0ad00a2cc7745206b3c7de9af2c1";
 
 /// The current Tymbolica atom-model payload version.
-pub const PAYLOAD_VERSION: u16 = 1;
+pub const PAYLOAD_VERSION: u16 = 2;
 
 /// Maximum accepted size of a complete payload.
 pub const MAX_PAYLOAD_BYTES: usize = 16 * 1024 * 1024;
 
-/// Maximum accepted size of the shared Symbolica state section.
-pub const MAX_STATE_BYTES: usize = 8 * 1024 * 1024;
-
-/// Maximum accepted size of one stateless atom section.
+/// Maximum accepted size of one canonical atom section.
 pub const MAX_ATOM_BYTES: usize = 4 * 1024 * 1024;
 
 /// Maximum cumulative stateless-atom size in one model.
@@ -43,7 +38,6 @@ pub const MAX_ATOM_COUNT: usize = 4096;
 
 const MAGIC: &[u8; 8] = b"TYMATOM\0";
 const REVISION_LEN: usize = 40;
-const STATELESS_ATOM_HEADER_LEN: usize = 9;
 
 /// An ordered numerical model crossing the plugin boundary.
 ///
@@ -85,12 +79,7 @@ impl AtomModel {
 
         let mut atom_bytes = 0usize;
         for atom in self.expressions.iter().chain(&self.parameters) {
-            let atom_len = atom
-                .as_atom_view()
-                .get_data()
-                .len()
-                .checked_add(STATELESS_ATOM_HEADER_LEN)
-                .ok_or(PayloadError::LimitExceeded("atom"))?;
+            let atom_len = atom.to_canonical_string().len();
             if atom_len > MAX_ATOM_BYTES {
                 return Err(PayloadError::LimitExceeded("atom"));
             }
@@ -129,18 +118,9 @@ impl AtomModel {
         self.parameters.len()
     }
 
-    /// Encode this model with one shared Symbolica state snapshot.
+    /// Encode this model as bounded canonical, namespaced expressions.
     pub fn encode(&self) -> Result<Vec<u8>, PayloadError> {
         self.validate()?;
-
-        let mut state = Vec::new();
-        State::export(&mut state).map_err(|source| PayloadError::Io {
-            operation: "exporting Symbolica state",
-            source,
-        })?;
-        if state.len() > MAX_STATE_BYTES {
-            return Err(PayloadError::LimitExceeded("Symbolica state"));
-        }
 
         let mut output = Vec::new();
         append_checked(&mut output, MAGIC, "payload")?;
@@ -148,12 +128,11 @@ impl AtomModel {
         append_checked(&mut output, SYMBOLICA_REVISION.as_bytes(), "payload")?;
         write_u32(&mut output, self.expressions.len(), "expression count")?;
         write_u32(&mut output, self.parameters.len(), "parameter count")?;
-        write_blob(&mut output, &state, "Symbolica state")?;
         for atom in &self.expressions {
-            write_stateless_atom(&mut output, atom, "expression atom")?;
+            write_atom_source(&mut output, atom, "expression atom")?;
         }
         for atom in &self.parameters {
-            write_stateless_atom(&mut output, atom, "parameter atom")?;
+            write_atom_source(&mut output, atom, "parameter atom")?;
         }
 
         Ok(output)
@@ -197,7 +176,6 @@ impl AtomModel {
             return Err(PayloadError::LimitExceeded("atom count"));
         }
 
-        let state = reader.read_blob(MAX_STATE_BYTES, "Symbolica state")?;
         let expression_bytes = reader.read_atom_blobs(expression_count, "expression")?;
         let parameter_bytes = reader.read_atom_blobs(parameter_count, "parameter")?;
         reader.finish()?;
@@ -211,29 +189,15 @@ impl AtomModel {
             return Err(PayloadError::LimitExceeded("model atoms"));
         }
 
-        // Import only after the outer envelope and every atom frame have been
-        // checked. State import mutates Symbolica's process-global registry.
-        let mut state_cursor = Cursor::new(state);
-        let state_map =
-            State::import(&mut state_cursor, None).map_err(|source| PayloadError::Io {
-                operation: "importing Symbolica state",
-                source,
-            })?;
-        require_cursor_eof(&state_cursor, state.len(), "Symbolica state")?;
-
         let expressions = expression_bytes
             .into_iter()
             .enumerate()
-            .map(|(index, bytes)| {
-                decode_stateless_atom(bytes, &state_map, format!("expression {index}"))
-            })
+            .map(|(index, bytes)| decode_atom_source(bytes, format!("expression {index}")))
             .collect::<Result<Vec<_>, _>>()?;
         let parameters = parameter_bytes
             .into_iter()
             .enumerate()
-            .map(|(index, bytes)| {
-                decode_stateless_atom(bytes, &state_map, format!("parameter {index}"))
-            })
+            .map(|(index, bytes)| decode_atom_source(bytes, format!("parameter {index}")))
             .collect::<Result<Vec<_>, _>>()?;
 
         Self::new(expressions, parameters)
@@ -349,95 +313,29 @@ impl std::error::Error for PayloadError {
     }
 }
 
-fn write_stateless_atom(
+fn write_atom_source(
     output: &mut Vec<u8>,
     atom: &Atom,
     section: &'static str,
 ) -> Result<(), PayloadError> {
-    let atom_len = atom
-        .as_atom_view()
-        .get_data()
-        .len()
-        .checked_add(STATELESS_ATOM_HEADER_LEN)
-        .ok_or(PayloadError::LimitExceeded(section))?;
-    if atom_len > MAX_ATOM_BYTES {
+    let source = atom.to_canonical_string();
+    if source.len() > MAX_ATOM_BYTES {
         return Err(PayloadError::LimitExceeded(section));
     }
-    let framed_len = atom_len
-        .checked_add(4)
-        .ok_or(PayloadError::LimitExceeded(section))?;
-    if output
-        .len()
-        .checked_add(framed_len)
-        .is_none_or(|length| length > MAX_PAYLOAD_BYTES)
-    {
-        return Err(PayloadError::LimitExceeded("payload"));
-    }
-
-    write_u32(output, atom_len, section)?;
-    atom.as_atom_view()
-        .write(output)
-        .map_err(|source| PayloadError::Io {
-            operation: "writing an atom",
-            source,
-        })
+    write_blob(output, source.as_bytes(), section)
 }
 
-fn decode_stateless_atom(
-    bytes: &[u8],
-    state_map: &symbolica::state::StateMap,
-    label: String,
-) -> Result<Atom, PayloadError> {
-    validate_stateless_atom_frame(bytes, &label)?;
-    let mut cursor = Cursor::new(bytes);
-    let atom =
-        Atom::import_with_map(&mut cursor, state_map).map_err(|source| PayloadError::Io {
-            operation: "importing an atom",
-            source,
-        })?;
-    require_cursor_eof(&cursor, bytes.len(), "atom")?;
-    Ok(atom)
-}
-
-fn validate_stateless_atom_frame(bytes: &[u8], label: &str) -> Result<(), PayloadError> {
+fn decode_atom_source(bytes: &[u8], label: String) -> Result<Atom, PayloadError> {
     if bytes.len() > MAX_ATOM_BYTES {
         return Err(PayloadError::LimitExceeded("atom"));
     }
-    if bytes.len() < STATELESS_ATOM_HEADER_LEN {
-        return Err(PayloadError::InvalidAtom(format!("{label} is truncated")));
-    }
-    if bytes[0] != 0 {
-        return Err(PayloadError::InvalidAtom(format!(
-            "{label} has unsupported flags"
-        )));
-    }
-
-    let declared = u64::from_le_bytes(
-        bytes[1..STATELESS_ATOM_HEADER_LEN]
-            .try_into()
-            .expect("fixed-size atom length"),
-    );
-    let declared = usize::try_from(declared)
-        .map_err(|_| PayloadError::InvalidAtom(format!("{label} length is out of range")))?;
-    if declared != bytes.len() - STATELESS_ATOM_HEADER_LEN {
-        return Err(PayloadError::InvalidAtom(format!(
-            "{label} has an inconsistent length"
-        )));
-    }
-    if declared == 0 {
+    let source = std::str::from_utf8(bytes)
+        .map_err(|error| PayloadError::InvalidAtom(format!("{label} is not UTF-8: {error}")))?;
+    if source.is_empty() {
         return Err(PayloadError::InvalidAtom(format!("{label} is empty")));
     }
-
-    // The low three bits are Symbolica's atom discriminant at the pinned
-    // revision: Num=1 through Pow=6. Checking it prevents the importer's
-    // unreachable branch for obviously malformed frames.
-    if !(1..=6).contains(&(bytes[STATELESS_ATOM_HEADER_LEN] & 0b111)) {
-        return Err(PayloadError::InvalidAtom(format!(
-            "{label} has an unknown atom type"
-        )));
-    }
-
-    Ok(())
+    Atom::parse(source, "tymbolica-atom-model", ParseSettings::default())
+        .map_err(|error| PayloadError::InvalidAtom(format!("could not parse {label}: {error}")))
 }
 
 fn append_checked(
@@ -472,20 +370,6 @@ fn write_blob(
 ) -> Result<(), PayloadError> {
     write_u32(output, bytes.len(), section)?;
     append_checked(output, bytes, section)
-}
-
-fn require_cursor_eof(
-    cursor: &Cursor<&[u8]>,
-    expected: usize,
-    section: &'static str,
-) -> Result<(), PayloadError> {
-    if cursor.position() == expected as u64 {
-        Ok(())
-    } else {
-        Err(PayloadError::InvalidAtom(format!(
-            "{section} contains trailing bytes"
-        )))
-    }
 }
 
 struct Reader<'a> {
@@ -537,12 +421,11 @@ impl<'a> Reader<'a> {
     fn read_atom_blobs(
         &mut self,
         count: usize,
-        kind: &'static str,
+        _kind: &'static str,
     ) -> Result<Vec<&'a [u8]>, PayloadError> {
         let mut atoms = Vec::with_capacity(count);
-        for index in 0..count {
+        for _ in 0..count {
             let atom = self.read_blob(MAX_ATOM_BYTES, "atom")?;
-            validate_stateless_atom_frame(atom, &format!("{kind} {index}"))?;
             atoms.push(atom);
         }
         Ok(atoms)

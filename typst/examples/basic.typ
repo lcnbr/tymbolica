@@ -20,5 +20,5 @@ $
   f'(x) &= #to-typst(slope)
 $
 
-All coefficients remain exact, and this basic example uses the small core
-plugin only.
+All coefficients remain exact; no separate setup step is needed before using
+the imported functions.

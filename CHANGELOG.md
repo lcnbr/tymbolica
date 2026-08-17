@@ -16,11 +16,9 @@ local `0.1.0` package while its initial public surface is being prepared.
   `symbolica-integrate` Rubi engine. `integrate-with-steps` now returns Rubi's
   actual nested transformations, including rule metadata, input and output
   expressions, and whether the best-effort result is complete.
-- Split the WebAssembly engine into a compact core plugin and a full plugin
-  containing Rubi. The imported top-level API and plain `init()` use core;
-  integration requires `init(profile: "full")`. The full engine is stored in
-  two web-app-sized carriers and reassembled transparently, while core-only
-  documents load just the core.
+- Added Rubi to the single bundled engine, stored as a DEFLATE-compressed asset
+  and expanded transparently by a small loader. This avoids shipping a second,
+  core-only copy of Symbolica while keeping each engine file below 10 MiB.
 - Added a versioned atom-model crate shared by independent plugins, plus a
   separate Peroxide RK4 plugin and Lotka–Volterra example demonstrating a
   symbolic model crossing the plugin boundary.

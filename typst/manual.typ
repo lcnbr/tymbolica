@@ -155,7 +155,7 @@ Linux, place or symlink the repository root at:
 
 Use the corresponding Typst data directory on macOS or Windows. The package
 root must contain `typst.toml`; its `typst` directory contains `lib.typ` and
-the bundled core and full engines.
+the bundled engine.
 Then import:
 
 #raw(
@@ -183,33 +183,15 @@ included in the checkout.
   ],
 )
 
-== Choose core or full
+== Create an engine
 
-Most documents only need Tymbolica's algebra, solving, evaluation, and matrix
-tools. Those live in the small core plugin, which is selected by default. The
-much larger Rubi rule collection lives in a separate full plugin, so a document
-that never integrates does not have to load it.
-
-#table(
-  columns: (0.8fr, 1.6fr, 3fr),
-  inset: 6pt,
-  stroke: 0.4pt + rgb("#d5dbe1"),
-  table.header([*Profile*], [*Create it with*], [*Use it for*]),
-  [Core],
-  [`init()`],
-  [Everything except Rubi integration; this is the default.],
-  [Full],
-  [`init(profile: "full")`],
-  [`integrate`, `integrate-with-steps`, and all core operations.],
-)
-
-Both profiles ship with the package, but Typst only loads the selected engine.
-
-For an integration-heavy document, give the full engine a short name and use
-its methods explicitly:
+Most operations are available directly from the imported top-level API.
+Create an engine with `init()` when you need Rubi integration, a custom symbol
+namespace, or another parser grammar. Bind related methods from that engine so
+their Atom values stay together:
 
 ```typst
-#let sym = init(profile: "full")
+#let sym = init()
 #let parse = sym.math
 #let var = sym.var
 #let integrate = sym.integrate
@@ -217,11 +199,10 @@ its methods explicitly:
 #let result = integrate(parse($x / (x + 1)$), x)
 ```
 
-The imported top-level API is core-only, so integration always starts with an
-explicit full engine. Atom exports include the state needed by another
-compatible engine, but direct exchange remains tied to Symbolica's wire
-revision. `atom-model` provides the explicit, version-checked form when a set
-of expressions and parameters must cross a plugin boundary.
+Atom exports include the state needed by another compatible engine, but direct
+exchange remains tied to Symbolica's wire revision. `atom-model` provides the
+explicit, version-checked form when a set of expressions and parameters must
+cross a plugin boundary.
 
 == Where to begin
 
@@ -238,9 +219,9 @@ of expressions and parameters must cross a plugin boundary.
   [Put an answer back into the document],
   [`to-typst`],
   [Factor, expand, differentiate, or take a series],
-  [`expand`, `factor`, `derivative`, `series` in the core profile],
+  [`expand`, `factor`, `derivative`, `series`],
   [Integrate and inspect Rubi's rule path],
-  [`init(profile: "full")`, then `sym.integrate-with-steps`],
+  [`init()`, then `sym.integrate-with-steps`],
   [Replace a recurring symbolic pattern],
   [`wild`, `rule`, `replace`],
   [Evaluate a formula at many points],
@@ -491,11 +472,10 @@ difference between an ordinary `var("a")` and `wild("a")`.
 For $x/(1+x)$, the useful idea is to expose a constant term before integrating.
 Rubi finds that rewrite, splits the resulting integral, and records the nested
 rule path. This is the same example used in
-#link(symbolica-integration)[Symbolica's integration introduction]. Here the
-full engine is explicit because the core plugin deliberately omits Rubi.
+#link(symbolica-integration)[Symbolica's integration introduction].
 
 ```worked
-#let sym = init(profile: "full")
+#let sym = init()
 #let parse = sym.math
 #let var = sym.var
 #let render = sym.to-typst
@@ -710,12 +690,12 @@ Tymbolica deliberately presents a smaller surface than Symbolica itself. The
 parts covered in this manual work well for exact algebra in documents, but a
 few boundaries are worth knowing before you choose an approach:
 
-- The imported top-level API and the default `init()` engine are core-only.
-  Rubi integration is available from `init(profile: "full")`.
+- Rubi integration methods are fields of the dictionary returned by `init()`;
+  bind them from that engine before use.
 
 - Atom bytes belong to the plugin instance that created them. Bind the parser,
-  operations, and renderer from one engine rather than mixing core and full
-  calls in the same expression pipeline.
+  operations, and renderer from one engine rather than mixing plugin instances
+  in the same expression pipeline.
 
 - Integration returns a best-effort expression when no Rubi rule finishes the
   job. Check `complete` from `integrate-with-steps` when an unevaluated
@@ -752,11 +732,11 @@ precision, or deeper polynomial algorithms—use Symbolica directly.
   [`expected content, found bytes`],
   [A symbolic result was inserted directly into `$...$`.],
   [Display it with `to-typst`.],
-  [An engine has no `integrate` method],
-  [It was created with the default core profile.],
-  [Use `init(profile: "full")` and bind its integration functions.],
+  [An `integrate` call is undefined],
+  [Integration methods are returned by `init()`, not imported at top level.],
+  [Create an engine and bind `sym.integrate` or `sym.integrate-with-steps`.],
   [A symbolic result fails in another API],
-  [The Atom bytes were created by a different plugin instance or profile.],
+  [The Atom bytes were created by a different plugin instance.],
   [Parse, transform, and render through functions bound from the same engine.],
   [A derivative or series leaves a function unchanged],
   [`sin`, `cos`, or another analytic function was read as an ordinary name.],
@@ -781,8 +761,8 @@ precision, or deeper polynomial algorithms—use Symbolica directly.
 = API reference
 
 The worked chapters are meant for reading; this section is meant for looking
-things up. The generated groups below are the core-only top-level API. The two
-full-profile integration methods are documented separately afterwards.
+things up. The generated groups below are the top-level API. The two
+engine-bound integration methods are documented separately afterwards.
 
 #let reference-groups = (
   (
@@ -793,7 +773,7 @@ full-profile integration methods are documented separately afterwards.
     ),
   ),
   (
-    title: [Algebra and core calculus],
+    title: [Algebra and calculus],
     names: (
       "simplify", "expand", "factor", "together", "cancel", "apart",
       "collect", "coefficient", "coefficient-list", "terms",
@@ -865,12 +845,12 @@ full-profile integration methods are documented separately afterwards.
   }
 ]
 
-== Full-profile integration methods
+== Integration methods
 
 These methods are fields of the dictionary returned by
-`init(profile: "full")`; they are not imported as top-level functions. Bind
-them before use, as in the worked integration example, and keep their Atom
-inputs and outputs on the same full engine.
+`init()`; they are not imported as top-level functions. Bind them before use,
+as in the worked integration example, and keep their Atom inputs and outputs
+on the same engine.
 
 ```text
 integrate(expr, var) -> bytes
@@ -900,9 +880,8 @@ Tymbolica's original source code is released under the
 #link(repository + "/blob/main/LICENSE")[MIT License]. Symbolica is developed
 by the Symbolica contributors and is distributed under its own
 #link("https://symbolica.io/license/")[license terms]. The MIT License does not
-relicense Symbolica or the bundled WebAssembly engines; Symbolica's terms
-still apply to their use. The full plugin's symbolic integration is supplied
-by the
+relicense Symbolica or the bundled WebAssembly engine; Symbolica's terms
+still apply to its use. The engine's symbolic integration is supplied by the
 #link("https://github.com/symbolica-dev/symbolica-integrate")[MIT-licensed
 `symbolica-integrate`] crate and its port of the Rubi rules.
 
@@ -915,8 +894,8 @@ Tymbolica would not exist without #link("https://symbolica.io/")[Symbolica].
 Thank you to its contributors for building and sharing the algebra engine at
 the heart of this package, and for making Rubi integration available through
 #link("https://github.com/symbolica-dev/symbolica-integrate")[`symbolica-integrate`].
-Thanks as well to the Rubi contributors whose rule collection powers the
-full integration plugin.
+Thanks as well to the Rubi contributors whose rule collection powers symbolic
+integration.
 
 Thanks also to #link("https://typst.app/universe/package/parsely/")[Parsely],
 which makes it possible to work with mathematics written directly in Typst,

@@ -2374,7 +2374,8 @@ pub fn solve_system(request: &[u8]) -> Result<Vec<u8>, String> {
                 .map_err(|err| format!("solve variable must be a variable: {err}"))
         })
         .collect::<Result<Vec<PolyVariable>, _>>()?;
-    let solutions = AtomView::solve::<u16, _, Atom>(&system, &variables)
+    let solutions = Atom::solve(&system)
+        .wrt(&variables)
         .map_err(|err| format!("could not solve system: {err}"))?;
     let rows = solutions
         .into_iter()

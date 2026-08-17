@@ -12,13 +12,15 @@ crate-type = ["cdylib"]
 [features]
 default = []
 rubi = ["dep:symbolica-integrate"]
+compressed-step-metadata = ["rubi", "symbolica-integrate/compressed-step-metadata"]
 
 [dependencies]
 ahash = { version = "0.8", default-features = false, features = ["std", "compile-time-rng"] }
 ciborium = "0.2.2"
 getrandom = "0.3"
-symbolica = { git = "https://github.com/symbolica-dev/symbolica", rev = "9ad7ca3f59f9ed8637e3f4ae8157ead177662994", default-features = false, features = ["wasm"] }
-symbolica-integrate = { git = "https://github.com/symbolica-dev/symbolica-integrate", rev = "c0766013b7b866a0ab37324862240204bfa7107a", features = ["steps"], optional = true }
+symbolica = { git = "https://github.com/symbolica-dev/symbolica", rev = "680f51f5b70c0ad00a2cc7745206b3c7de9af2c1", default-features = false, features = ["wasm"] }
+# Vendored from symbolica-integrate dev commit fbb7dffa62cc4a560175b06e208aa8217e0f292e.
+symbolica-integrate = { path = "vendor/symbolica-integrate", features = ["steps"], optional = true }
 tymbolica-atom-payload = { path = "crates/atom-payload" }
 wasm-minimal-protocol = "0.1"
 
@@ -26,10 +28,17 @@ wasm-minimal-protocol = "0.1"
 # Temporary until astro-float publishes the merged wasm32 word-size fix.
 astro-float = { git = "https://github.com/stencillogic/astro-float", rev = "f92380e025deb8e1743ed93c6d5bf0783ac28717" }
 astro-float-num = { git = "https://github.com/stencillogic/astro-float", rev = "f92380e025deb8e1743ed93c6d5bf0783ac28717" }
+# Symbolica's development branch advances these workspace crates in lockstep.
+numerica = { git = "https://github.com/symbolica-dev/symbolica", rev = "680f51f5b70c0ad00a2cc7745206b3c7de9af2c1" }
+graphica = { git = "https://github.com/symbolica-dev/symbolica", rev = "680f51f5b70c0ad00a2cc7745206b3c7de9af2c1" }
 symbolica = { path = "vendor/symbolica-wasm" }
 
 [workspace]
-members = ["crates/atom-payload", "crates/peroxide-example-plugin"]
+members = [
+  "crates/atom-payload",
+  "crates/inflate-plugin",
+  "crates/peroxide-example-plugin",
+]
 resolver = "3"
 
 [profile.release]

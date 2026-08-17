@@ -9,7 +9,7 @@ place the result back into the same document. You can currently:
 
 - expand, factor, collect, differentiate, and inspect expressions;
 - combine, cancel, or decompose rational functions;
-- use the full profile for Rubi integration, and calculate series;
+- integrate with Rubi, inspect its steps, and calculate series;
 - replace recurring patterns with wildcards;
 - solve systems exactly or numerically;
 - evaluate formulas over points or grids; and
@@ -42,16 +42,15 @@ The factorization and derivative are computed exactly while Typst compiles the
 document. Symbolica expressions are opaque values; render them with `to-typst`
 or inspect them with `canonical`.
 
-## Core and full profiles
+## Rubi integration
 
-Tymbolica ships two engine profiles. The compact core profile handles
-parsing, algebra, solving, evaluation, matrices, and series. The full plugin
-adds Rubi integration and genuine, nested integration steps. The imported
-top-level API is core-only. To integrate, create a full-profile API and use its
-functions throughout the calculation:
+Tymbolica ships one Symbolica engine containing its algebra tools and Rubi.
+Most operations are available directly from the imported top-level API.
+Integration and its genuine, nested rule steps are methods of an API created
+with `init()`:
 
 ```typst
-#let sym = init(profile: "full")
+#let sym = init()
 #let parse = sym.math
 #let var = sym.var
 #let integrate = sym.integrate
@@ -60,13 +59,9 @@ functions throughout the calculation:
 #render(integrate(parse($x / (x + 1)$), x))
 ```
 
-An API created with plain `init()` uses the core profile. Atom exports carry
-the Symbolica state needed by a compatible plugin, but direct exchange is tied
-to the same Symbolica wire revision. Use `atom-model` for an explicit,
-version-checked handoff of several expressions and parameters.
-
-Both profiles are included in the package. A document that does not integrate
-only loads and instantiates the smaller core engine.
+Atom exports carry the Symbolica state needed by a compatible plugin, but
+direct exchange is tied to the same Symbolica wire revision. Use `atom-model`
+for an explicit, version-checked handoff of several expressions and parameters.
 
 ## Install locally
 
@@ -90,8 +85,8 @@ Linux data directory. During repository development, examples instead import
 - [User manual](typst/manual.pdf) — quickstart, concepts, recipes, limitations,
   and complete API reference
 - [Minimal example](typst/examples/basic.typ) — a compact first document
-- [Rubi integration](typst/examples/integration.typ) — the explicit full
-  profile and its nested rule steps
+- [Rubi integration](typst/examples/integration.typ) — an antiderivative and
+  its nested rule steps
 - [Peroxide bridge](typst/examples/peroxide-ode.typ) — Tymbolica builds a
   symbolic ODE model which a separate numerical plugin integrates
 - [Polynomial-system showcase](typst/examples/showcase.typ) — exact solving,
@@ -115,11 +110,10 @@ nix develop
 Use the repository apps for the normal release workflow:
 
 ```sh
-nix run .#build       # rebuild both engine profiles and the Peroxide example
-nix run .#build-core  # rebuild only typst/tymbolica.wasm
-nix run .#build-full  # rebuild only the full Rubi bundle
+nix run .#build       # rebuild the engine and the Peroxide example
+nix run .#build-engine # rebuild only the compressed Symbolica/Rubi engine
 nix run .#build-peroxide # rebuild the Peroxide example plugin
-nix run .#manual      # rebuild both profiles and typst/manual.pdf
+nix run .#manual      # rebuild the engine and typst/manual.pdf
 nix run .#check       # rebuild, compile the public examples, and verify the PDF
 nix flake check       # validate the Typst distribution using tracked plugins
 ```

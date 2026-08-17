@@ -28,34 +28,32 @@
             program = "${pkgs.writeShellApplication { inherit name; runtimeInputs = path; inherit text; }}/bin/${name}";
             meta.description = "Run ${name}";
           };
-          buildVariant = cargoFeatures: output: ''
+          engineBuildScript = ''
             target=wasm32-unknown-unknown
             unset RUSTFLAGS CARGO_ENCODED_RUSTFLAGS
-            cargo build --release --target "$target" -p tymbolica-plugin --no-default-features ${cargoFeatures}
+            cargo build --release --target "$target" -p tymbolica-plugin --no-default-features --features compressed-step-metadata
+
+            engine_raw="target/$target/release/tymbolica.raw.wasm"
             wasm-opt -Oz --quiet --enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int --strip-debug --strip-producers \
-              -o ${output} "target/$target/release/tymbolica_plugin.wasm"
-            size="$(wc -c < ${output})"
-            if [ "$size" -gt 20971520 ]; then
-              echo "${output} is $size bytes; Typst web app files must not exceed 20 MiB" >&2
+              -o "$engine_raw" "target/$target/release/tymbolica_plugin.wasm"
+
+            cargo run --release -p tymbolica-inflate-plugin --bin tymbolica-compress -- \
+              "$engine_raw" typst/tymbolica.wasm.zlib
+            cargo build --release --target "$target" -p tymbolica-inflate-plugin --lib
+            wasm-opt -Oz --quiet --enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int --strip-debug --strip-producers \
+              -o typst/tymbolica-inflate.wasm "target/$target/release/tymbolica_inflate_plugin.wasm"
+
+            compressed_size="$(wc -c < typst/tymbolica.wasm.zlib)"
+            loader_size="$(wc -c < typst/tymbolica-inflate.wasm)"
+            if [ "$compressed_size" -gt 10485760 ]; then
+              echo "typst/tymbolica.wasm.zlib is $compressed_size bytes; compressed engine must remain below 10 MiB" >&2
               exit 1
             fi
-            ls -lh ${output}
-          '';
-          coreBuildScript = buildVariant "" "typst/tymbolica.wasm";
-          fullBuildScript = ''
-            target=wasm32-unknown-unknown
-            unset RUSTFLAGS CARGO_ENCODED_RUSTFLAGS
-            cargo build --release --target "$target" -p tymbolica-plugin --no-default-features --features rubi
-
-            full_raw="target/$target/release/tymbolica-full.raw.wasm"
-            wasm-opt -Oz --quiet --enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int --strip-debug --strip-producers \
-              -o "$full_raw" "target/$target/release/tymbolica_plugin.wasm"
-
-            carrier_tool="target/wasm-carrier"
-            rustc -O tools/wasm-carrier.rs -o "$carrier_tool"
-            "$carrier_tool" "$full_raw" \
-              typst/tymbolica-full-0.wasm typst/tymbolica-full-1.wasm
-            ls -lh typst/tymbolica-full-0.wasm typst/tymbolica-full-1.wasm
+            if [ "$loader_size" -gt 10485760 ]; then
+              echo "typst/tymbolica-inflate.wasm is $loader_size bytes; loader must remain below 10 MiB" >&2
+              exit 1
+            fi
+            ls -lh typst/tymbolica.wasm.zlib typst/tymbolica-inflate.wasm
           '';
           peroxideBuildScript = ''
             target=wasm32-unknown-unknown
@@ -70,13 +68,11 @@
             fi
             ls -lh typst/tymbolica-peroxide.wasm
           '';
-          engineBuildScript = coreBuildScript + fullBuildScript;
           buildScript = engineBuildScript + peroxideBuildScript;
         in rec {
           default = build;
           build = app "tymbolica-build" buildScript;
-          build-core = app "tymbolica-build-core" coreBuildScript;
-          build-full = app "tymbolica-build-full" fullBuildScript;
+          build-engine = app "tymbolica-build-engine" engineBuildScript;
           build-peroxide = app "tymbolica-build-peroxide" peroxideBuildScript;
           manual = app "tymbolica-manual" (engineBuildScript + ''
             out="''${TYMBOLICA_MANUAL_OUT:-typst/manual.pdf}"

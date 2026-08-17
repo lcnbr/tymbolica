@@ -8,5 +8,12 @@ license = "MIT"
 [lib]
 path = "src/lib.rs"
 
+[features]
+default = []
+# `symbolica-integrate` requests this native allocator feature. Keep the feature
+# name available while using Rust's Wasm allocator instead of mimalloc C objects.
+faster_alloc = []
+wasm = ["symbolica-upstream/wasm"]
+
 [dependencies]
-symbolica-upstream = { package = "symbolica", git = "https://github.com/symbolica-dev/symbolica", rev = "9ad7ca3f59f9ed8637e3f4ae8157ead177662994", default-features = false, features = ["wasm"] }
+symbolica-upstream = { package = "symbolica", git = "https://github.com/symbolica-dev/symbolica", rev = "680f51f5b70c0ad00a2cc7745206b3c7de9af2c1", default-features = false, features = ["wasm"] }

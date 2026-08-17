@@ -479,21 +479,18 @@
 #let _div(engine, lhs, rhs) = engine.plugin.div(_expr_bytes(engine, lhs), _expr_bytes(engine, rhs))
 #let _pow(engine, base, exp) = engine.plugin.power(_expr_bytes(engine, base), _expr_bytes(engine, exp))
 
-// Must match CARRIER_HEADER_LEN in tools/wasm-carrier.rs.
-#let _full_carrier_payload_offset = 32
-#let _bundled_full_plugin() = plugin(
-  read("tymbolica-full-0.wasm", encoding: none).slice(_full_carrier_payload_offset)
-  + read("tymbolica-full-1.wasm", encoding: none).slice(_full_carrier_payload_offset)
+#let _bundled_plugin() = plugin(
+  plugin("tymbolica-inflate.wasm").decompress(
+    read("tymbolica.wasm.zlib", encoding: none),
+  ),
 )
 
 /// Create an independent set of Tymbolica functions.
 ///
 /// The returned dictionary exposes Tymbolica's parsing, algebra, evaluation,
-/// solving, and matrix operations. The `"core"` profile uses the small plugin
-/// and leaves out symbolic integration. The `"full"` profile adds Rubi's
-/// `integrate` and `integrate-with-steps` methods. Use `init` when you want to
-/// select a profile, symbol namespace, plugin location, or parser grammar;
-/// ordinary calculations can use the imported top-level functions directly.
+/// solving, matrix, and Rubi integration operations. Use `init` when you want
+/// to select a symbol namespace, plugin location, or parser grammar; ordinary
+/// calculations can use the imported top-level functions directly.
 ///
 /// `integrate(expr, var)` returns Rubi's best-effort antiderivative as bytes.
 /// `integrate-with-steps(expr, var)` returns `(result: bytes, complete: bool,
@@ -519,13 +516,9 @@
   /// per-call `namespace` passed to `math` or `var` takes precedence.
   /// -> str
   namespace: "typst",
-  /// Plugin profile. `"core"` selects the small Symbolica bundle; `"full"`
-  /// selects the bundle with Rubi integration and genuine integration steps.
-  /// -> str
-  profile: "core",
   /// WebAssembly plugin path or bytes passed to Typst's `plugin` constructor.
-  /// `none` selects the bundled plugin for `profile`. Relative custom paths
-  /// are resolved by Typst from this source file.
+  /// `none` selects the bundled engine. Relative custom paths are resolved by
+  /// Typst from this source file.
   /// -> str | bytes | none
   source: none,
   /// Parser grammar used by `math` and `array-tree` unless they receive an
@@ -533,16 +526,10 @@
   /// -> dictionary
   grammar: _default_grammar,
 ) = {
-  assert(
-    profile in ("core", "full"),
-    message: "profile must be \"core\" or \"full\"",
-  )
   let plugin-module = if source != none {
     plugin(source)
-  } else if profile == "full" {
-    _bundled_full_plugin()
   } else {
-    plugin("tymbolica.wasm")
+    _bundled_plugin()
   }
   let engine = (
     plugin: plugin-module,
@@ -618,15 +605,9 @@
     sub: (lhs, rhs) => _sub(engine, lhs, rhs),
     div: (lhs, rhs) => _div(engine, lhs, rhs),
     pow: (base, exp) => _pow(engine, base, exp),
+    integrate: (expr, var) => _integrate(engine, expr, var),
+    integrate-with-steps: (expr, var) => _integrate_with_steps(engine, expr, var),
   )
-
-  if profile == "full" {
-    api.insert("integrate", (expr, var) => _integrate(engine, expr, var))
-    api.insert(
-      "integrate-with-steps",
-      (expr, var) => _integrate_with_steps(engine, expr, var),
-    )
-  }
   api
 }
 #let _default_engine() = init()
